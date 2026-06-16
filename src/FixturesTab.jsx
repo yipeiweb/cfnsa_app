@@ -182,34 +182,95 @@ export default function FixturesTab() {
     }
   };
 
-  // PDF 高清超链接引擎
+// 📄 B. 工业级 PDF 单页高清导出机制 (精准改良：锁定真实函数名，绝不误伤包含‘胜平负’字样的比赛备注)
   const exportToPDF = async () => {
     if (!shareAreaRef.current) return;
     try {
-      const element = shareAreaRef.current;
-      const dataUrl = await domToPng(element, { quality: 1, scale: 2, backgroundColor: '#ffffff' });
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 190; 
-      const imgHeight = (element.offsetHeight * imgWidth) / element.offsetWidth;
-      
-      pdf.addImage(dataUrl, 'PNG', 10, 10, imgWidth, imgHeight);
-      
-      const links = element.querySelectorAll('a');
-      const rect = element.getBoundingClientRect();
-      
-      links.forEach(link => {
-        const linkRect = link.getBoundingClientRect();
-        const left = ((linkRect.left - rect.left) / rect.width) * imgWidth + 10;
-        const top = ((linkRect.top - rect.top) / rect.height) * imgHeight + 10;
-        const width = (linkRect.width / rect.width) * imgWidth;
-        const height = (linkRect.height / rect.height) * imgHeight;
-        pdf.link(left, top, width, height, { url: link.href });
+      const container = shareAreaRef.current;
+      const rows = container.querySelectorAll('tbody tr');
+      const hiddenRows = [];
+      const linkPositions = []; 
+
+      // 1. 🧽 隐形裁剪：把没有集锦的比赛行临时隐藏
+      rows.forEach(row => {
+        const hasHighlight = row.querySelector('a[href*="http"]'); 
+        if (!hasHighlight) {
+          row.style.display = 'none';
+          hiddenRows.push(row);
+        }
       });
 
-      pdf.save(`CFNTA_国字号战绩报告_${new Date().toISOString().slice(0,10)}.pdf`);
+      // 2. 🧽 细节改良：极其精准地只隐藏头部的胜平负统计面板，绝对不触碰 tbody 表格内部的备注
+      // 统计面板通常在 container 下的直接子级 grid/flex 块里，我们排除掉 table 内部的所有节点
+      const statPanels = container.querySelectorAll('.bg-black\\/40, .grid, .flex');
+      const hiddenPanels = [];
+      
+      statPanels.forEach(panel => {
+        // 🔒 安全锁死防御线：只要这个节点不在 <table> 标签里面，且包含统计字样，才判定为是统计面板
+        if (!container.querySelector('table').contains(panel)) {
+          if (panel.textContent.includes('胜') || panel.textContent.includes('平') || panel.textContent.includes('负') || panel.textContent.includes('总数')) {
+            panel.style.display = 'none';
+            hiddenPanels.push(panel);
+          }
+        }
+      });
+
+      // 3. ✍️ 动态替换 Title 尾巴为 “比赛集锦”
+      const titleEl = container.querySelector('h2');
+      let originalTitleText = '';
+      if (titleEl) {
+        originalTitleText = titleEl.textContent;
+        titleEl.textContent = originalTitleText.replace(/赛程与战绩|全量赛程战绩大盘|战绩历史|赛事预告/g, '比赛集锦');
+      }
+
+      // 4. 📐 坐标测绘：测出每个留下的“视频集锦”按钮的精确相对位置
+      const containerRect = container.getBoundingClientRect();
+      const activeButtons = container.querySelectorAll('tbody tr a[href*="http"]');
+      
+      activeButtons.forEach(btn => {
+        const btnRect = btn.getBoundingClientRect();
+        linkPositions.push({
+          url: btn.getAttribute('href'),
+          left: btnRect.left - containerRect.left,
+          top: btnRect.top - containerRect.top,
+          width: btnRect.width,
+          height: btnRect.height
+        });
+      });
+
+      // 5. 📸 拍照合影：生成纯净的高清静态 PDF 图像产物
+      const dataUrl = await domToPng(container, { quality: 1, scale: 2, backgroundColor: '#ffffff' });
+
+      // 6. 🔄 瞬间复原：网页端立刻恢复原始状态
+      hiddenRows.forEach(row => { row.style.display = ''; });
+      hiddenPanels.forEach(panel => { panel.style.display = ''; });
+      if (titleEl && originalTitleText) {
+        titleEl.textContent = originalTitleText; 
+      }
+
+      // 7. 📄 组装 PDF 并打桩激活“小手”超链接热区
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      const pxToMmScale = pdfWidth / containerRect.width;
+
+      linkPositions.forEach(pos => {
+        const pdfX = pos.left * pxToMmScale;
+        const pdfY = pos.top * pxToMmScale;
+        const pdfW = pos.width * pxToMmScale;
+        const pdfH = pos.height * pxToMmScale;
+        pdf.link(pdfX, pdfY, pdfW, pdfH, { url: pos.url });
+      });
+
+      // 8. 💾 严格锁死你的自适应独特命名逻辑
+      pdf.save(`${searchTeam ? searchTeam : '各级国字号'}比赛集锦_${searchYear}_${searchMonth}.pdf`);
+      
     } catch (err) {
-      alert('PDF生成失败: ' + err.message);
+      console.error('PDF报告导出失败:', err);
     }
   };
 
