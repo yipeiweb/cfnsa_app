@@ -12,6 +12,12 @@ export default function LeagueStatsTab() {
     return params.get('statsTab') || 'total';
   });
 
+  // 拆分进球榜与助攻榜 (默认进球榜 'goals', 可选 'assists'，仅在赛季总榜生效)
+  const [rankType, setRankType] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1]);
+    return params.get('rankType') || 'goals';
+  });
+
   const [searchPlayer, setSearchPlayer] = useState(() => {
     const params = new URLSearchParams(window.location.hash.split('?')[1]);
     return params.get('player') || '';
@@ -32,6 +38,17 @@ export default function LeagueStatsTab() {
     return params.get('round') || '1';
   });
 
+  // 出生年份区间筛选状态 (From -> To)
+  const [birthFrom, setBirthFrom] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1]);
+    return params.get('birthFrom') || 'all';
+  });
+
+  const [birthTo, setBirthTo] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1]);
+    return params.get('birthTo') || 'all';
+  });
+
   const shareAreaRef = useRef(null);
 
   // 📡 2. 监听浏览器后退或外部 URL 输入，确保多参数完美同步
@@ -39,20 +56,26 @@ export default function LeagueStatsTab() {
     const handleHashChange = () => {
       const params = new URLSearchParams(window.location.hash.split('?')[1]);
       const urlTab = params.get('statsTab') || 'total';
+      const urlRankType = params.get('rankType') || 'goals';
       const urlPlayer = params.get('player') || '';
       const urlLeague = params.get('league') || 'all';
       const urlSeason = params.get('season') || '2026';
       const urlRound = params.get('round') || '1';
+      const urlBirthFrom = params.get('birthFrom') || 'all';
+      const urlBirthTo = params.get('birthTo') || 'all';
 
       if (urlTab !== subTab) setSubTab(urlTab);
+      if (urlRankType !== rankType) setRankType(urlRankType);
       if (urlPlayer !== searchPlayer) setSearchPlayer(urlPlayer);
       if (urlLeague !== searchLeague) setSearchLeague(urlLeague);
       if (urlSeason !== searchSeason) setSearchSeason(urlSeason);
       if (urlRound !== searchRound) setSearchRound(urlRound);
+      if (urlBirthFrom !== birthFrom) setBirthFrom(urlBirthFrom);
+      if (urlBirthTo !== birthTo) setBirthTo(urlBirthTo);
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [subTab, searchPlayer, searchLeague, searchSeason, searchRound]);
+  }, [subTab, rankType, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo]);
 
   // 📝 3. 动态全同步至 URL，且在换 Tab 时动态清洗不合规参数
   useEffect(() => {
@@ -63,8 +86,14 @@ export default function LeagueStatsTab() {
     params.set('season', searchSeason);
     if (searchPlayer) params.set('player', searchPlayer);
     if (searchLeague !== 'all') params.set('league', searchLeague);
+    if (birthFrom !== 'all') params.set('birthFrom', birthFrom);
+    if (birthTo !== 'all') params.set('birthTo', birthTo);
     
-    // 换 Tab 清洗机制：只有在每轮榜单下，才往 URL 里塞入轮次参数
+    // 🧽 只有在总榜（赛季榜）下，才写入拆分项 rankType
+    if (subTab === 'total') {
+      params.set('rankType', rankType);
+    }
+    // 🧽 只有在每轮榜单下，才往 URL 里塞入轮次参数
     if (subTab === 'round') {
       params.set('round', searchRound);
     }
@@ -73,7 +102,7 @@ export default function LeagueStatsTab() {
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', newHash);
     }
-  }, [subTab, searchPlayer, searchLeague, searchSeason, searchRound]);
+  }, [subTab, rankType, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo]);
 
   useEffect(() => {
     async function fetchLeagueStats() {
@@ -100,6 +129,11 @@ export default function LeagueStatsTab() {
     return [...new Set(seasons)].sort((a, b) => b - a);
   }, [statsData]);
 
+  const availableBirthYears = useMemo(() => {
+    const years = statsData.map(item => item.players?.birth_year).filter(Boolean);
+    return [...new Set(years)].sort((a, b) => a - b);
+  }, [statsData]);
+
   const availableRounds = useMemo(() => {
     const filteredRounds = statsData
       .filter(item => {
@@ -114,38 +148,35 @@ export default function LeagueStatsTab() {
     return Array.from({ length: maxRound }, (_, i) => (i + 1).toString());
   }, [statsData, searchSeason, searchLeague]);
 
-  // 🎨 4. 极致对齐设计图：整行同色系深浅交替算法（一整行一个色，再无突兀白底）
+  // 🎨 4. 同色系深浅整行交替算法
   const getRowBgColor = (index, leagueName) => {
     const isEven = index % 2 === 0;
-
     switch (leagueName) {
-      case '中超':
-        // 中超蓝色系交替：一行略深蓝，一行微润蓝
-        return isEven ? '#dbeafe' : '#eff6ff'; 
-
-      case '中甲':
-        // 中甲橙色系交替：一行略深橙，一行微润橙
-        return isEven ? '#ffedd5' : '#fff7ed'; 
-
-      case '中乙':
-        // 中乙绿色系交替：一行明显浅绿，一行极淡润绿
-        return isEven ? '#dcfce7' : '#f0fdf4'; 
-
-      default:
-        // 如果出现未知，默认使用基础灰色调交替
-        return isEven ? '#f1f5f9' : '#f8fafc';
+      case '中超': return isEven ? '#dbeafe' : '#eff6ff'; 
+      case '中甲': return isEven ? '#ffedd5' : '#fff7ed'; 
+      case '中乙': return isEven ? '#dcfce7' : '#f0fdf4'; 
+      default: return isEven ? '#f1f5f9' : '#f8fafc';
     }
   };
 
-  // 1. 赛季进球助攻榜数据处理
+  // ⚙️ 核心数据基础条件过滤器
+  const isPlayerMatchConditions = (item) => {
+    const playerName = item.players?.name || '';
+    const birthYear = item.players?.birth_year;
+
+    const matchPlayer = playerName.toLowerCase().includes(searchPlayer.toLowerCase());
+    const matchLeague = searchLeague === 'all' || item.league === searchLeague;
+    const matchSeason = searchSeason === 'all' || item.season?.toString() === searchSeason;
+    
+    const matchBirthFrom = birthFrom === 'all' || (birthYear && birthYear >= parseInt(birthFrom, 10));
+    const matchBirthTo = birthTo === 'all' || (birthYear && birthYear <= parseInt(birthTo, 10));
+
+    return matchPlayer && matchLeague && matchSeason && matchBirthFrom && matchBirthTo;
+  };
+
+  // 1. 🟢 赛季榜数据处理（加入数据为0时的致命强行剔除逻辑）
   const aggregatedTotalData = useMemo(() => {
-    const filtered = statsData.filter(item => {
-      const playerName = item.players?.name || '';
-      const matchPlayer = playerName.toLowerCase().includes(searchPlayer.toLowerCase());
-      const matchLeague = searchLeague === 'all' || item.league === searchLeague;
-      const matchSeason = searchSeason === 'all' || item.season?.toString() === searchSeason;
-      return matchPlayer && matchLeague && matchSeason;
-    });
+    const filtered = statsData.filter(isPlayerMatchConditions);
 
     const playerMap = {};
     filtered.forEach(item => {
@@ -167,27 +198,41 @@ export default function LeagueStatsTab() {
       playerMap[pid].appearances += 1;
     });
 
-    return Object.values(playerMap).sort((a, b) => {
-      if (b.goals !== a.goals) return b.goals - a.goals;
-      return b.assists - a.assists;
+    // 🌟 细节修改点 1：转换成数组后，根据当前的 rankType 进行严格的“无产出过滤拦截”
+    const allPlayersArray = Object.values(playerMap);
+    
+    const finalFilteredArray = allPlayersArray.filter(player => {
+      if (rankType === 'goals') return player.goals > 0; // 进球榜没进球的不给上榜
+      return player.assists > 0; // 助攻榜没助攻的不给上榜
     });
-  }, [statsData, searchPlayer, searchLeague, searchSeason]);
 
-  // 2. 每轮进球助攻榜数据处理
+    // 根据选择对应的榜单进行精准权重第一排序
+    return finalFilteredArray.sort((a, b) => {
+      if (rankType === 'goals') {
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        return b.assists - a.assists;
+      } else {
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        return b.goals - a.goals;
+      }
+    });
+  }, [statsData, searchPlayer, searchLeague, searchSeason, birthFrom, birthTo, rankType]);
+
+  // 2. 🟢 每轮榜数据处理（细节修改点 3：不进行进球/助攻拆分，经典高光混排）
   const roundData = useMemo(() => {
     return statsData.filter(item => {
-      const playerName = item.players?.name || '';
-      const matchPlayer = playerName.toLowerCase().includes(searchPlayer.toLowerCase());
-      const matchSeason = item.season?.toString() === searchSeason;
-      const matchLeague = searchLeague === 'all' || item.league === searchLeague;
       const matchRound = item.round?.toString() === searchRound;
-      return matchPlayer && matchSeason && matchLeague && matchRound;
+      // 只要该轮有输出（进球 > 0 或 助攻 > 0）且满足基础检索，就体面保留上榜
+      const hasOutput = (item.goals > 0 || item.assists > 0);
+      return matchRound && hasOutput && isPlayerMatchConditions(item);
     }).sort((a, b) => {
+      // 默认按单轮进球数排序，进球相同按助攻数排序
       if (b.goals !== a.goals) return b.goals - a.goals;
       return b.assists - a.assists;
     });
-  }, [statsData, searchPlayer, searchLeague, searchSeason, searchRound]);
+  }, [statsData, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo]);
 
+  // 🌟 细节修改点 2：球员统计总数动态且精准地绑定各自真正的最终数组长度
   const currentPlayerCount = useMemo(() => {
     return subTab === 'total' ? aggregatedTotalData.length : roundData.length;
   }, [subTab, aggregatedTotalData, roundData]);
@@ -197,16 +242,11 @@ export default function LeagueStatsTab() {
     try {
       const dataUrl = await domToPng(shareAreaRef.current, { quality: 1, scale: 2, backgroundColor: '#ffffff' });
       const link = document.createElement('a');
-      const prefix = subTab === 'total' ? '赛季进球助攻榜' : `第${searchRound}轮进球助攻榜`;
+      const typeText = subTab === 'total' ? (rankType === 'goals' ? '进球榜' : '助攻榜') : '进球助攻榜';
+      const prefix = subTab === 'total' ? `赛季${typeText}` : `第${searchRound}轮${typeText}`;
       link.download = `CFNSA_${prefix}_${new Date().toISOString().slice(0,10)}.png`;
       link.href = dataUrl;
       link.click();
-
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob })
-      ]);
     } catch (err) {
       console.error('导出失败:', err);
     }
@@ -248,74 +288,126 @@ export default function LeagueStatsTab() {
       </div>
 
       {/* 条件检索面板 */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-5 bg-black/40 border border-gray-800/80 p-4 rounded-xl shadow-xl">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">🏃 球员姓名</label>
-          <input 
-            placeholder="姓名过滤..." 
-            value={searchPlayer} 
-            onChange={(e) => setSearchPlayer(e.target.value)} 
-            className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs h-9 text-slate-200 focus:outline-none focus:border-green-500 transition-colors" 
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">🏆 联赛分级</label>
-          <select value={searchLeague} onChange={(e) => setSearchLeague(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
-            <option value="all">全部职业联赛</option>
-            <option value="中超">中超（u23）</option>
-            <option value="中甲">中甲（u21）</option>
-            <option value="中乙">中乙（u21）</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">📅 赛季年度</label>
-          <select value={searchSeason} onChange={(e) => setSearchSeason(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
-            {availableSeasons.length > 0 ? (
-              availableSeasons.map(s => <option key={s} value={s}>{s}赛季</option>)
+      <div className="bg-black/40 border border-gray-800/80 p-4 rounded-xl shadow-xl space-y-4">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">🏃 球员姓名</label>
+            <input 
+              placeholder="姓名过滤..." 
+              value={searchPlayer} 
+              onChange={(e) => setSearchPlayer(e.target.value)} 
+              className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs h-9 text-slate-200 focus:outline-none focus:border-green-500 transition-colors" 
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">🏆 联赛分级</label>
+            <select value={searchLeague} onChange={(e) => setSearchLeague(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
+              <option value="all">全部职业联赛</option>
+              <option value="中超">中超（u23）</option>
+              <option value="中甲">中甲（u21）</option>
+              <option value="中乙">中乙（u21）</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">📅 赛季年度</label>
+            <select value={searchSeason} onChange={(e) => setSearchSeason(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
+              {availableSeasons.length > 0 ? (
+                availableSeasons.map(s => <option key={s} value={s}>{s}赛季</option>)
+              ) : (
+                <option value="2026">2026赛季</option>
+              )}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5 transition-all">
+            {subTab === 'round' ? (
+              <>
+                <label className="text-[11px] font-bold text-green-400 uppercase tracking-wider">🔢 选择具体轮次</label>
+                <select value={searchRound} onChange={(e) => setSearchRound(e.target.value)} className="bg-black/80 border border-green-900/60 text-green-400 rounded-lg px-3 text-xs h-9 cursor-pointer focus:outline-none focus:border-green-500 font-mono font-bold">
+                  {availableRounds.map(r => <option key={r} value={r}>第 {r} 轮</option>)}
+                </select>
+              </>
             ) : (
-              <option value="2026">2026赛季</option>
+              <div className="hidden md:block opacity-0 pointer-events-none h-9" />
             )}
-          </select>
+          </div>
+
+          <div className="flex items-end justify-end">
+            <button 
+              onClick={exportStatsImageAndCopy} 
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black text-xs h-9 rounded-lg shadow-md transition-all focus:outline-none ring-1 ring-green-400/20"
+            >
+              📸 导出图片
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5 transition-all">
-          {subTab === 'round' ? (
-            <>
-              <label className="text-[11px] font-bold text-green-400 uppercase tracking-wider">🔢 选择具体轮次</label>
-              <select value={searchRound} onChange={(e) => setSearchRound(e.target.value)} className="bg-black/80 border border-green-900/60 text-green-400 rounded-lg px-3 text-xs h-9 cursor-pointer focus:outline-none focus:border-green-500 font-mono font-bold">
-                {availableRounds.map(r => <option key={r} value={r}>第 {r} 轮</option>)}
-              </select>
-            </>
-          ) : (
-            <div className="hidden md:block opacity-0 pointer-events-none h-9" />
-          )}
-        </div>
-
-        <div className="flex items-end justify-end">
-          <button 
-            onClick={exportStatsImageAndCopy} 
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black text-xs h-9 rounded-lg shadow-md transition-all focus:outline-none ring-1 ring-green-400/20"
-          >
-            📸 导出图片
-          </button>
+        {/* 出生年份区间筛选项 */}
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-5 pt-2 border-t border-gray-800/40">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-green-400 uppercase tracking-wider">👶 起始出生年 (From)</label>
+            <select value={birthFrom} onChange={(e) => setBirthFrom(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
+              <option value="all">不限年份</option>
+              {availableBirthYears.map(y => <option key={y} value={y}>{y} 年</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-green-400 uppercase tracking-wider">👦 截止出生年 (To)</label>
+            <select value={birthTo} onChange={(e) => setBirthTo(e.target.value)} className="bg-black/80 border border-gray-800 rounded-lg px-3 text-xs text-slate-200 h-9 cursor-pointer focus:outline-none focus:border-green-500">
+              <option value="all">不限年份</option>
+              {availableBirthYears.map(y => <option key={y} value={y}>{y} 年</option>)}
+            </select>
+          </div>
+          <div className="hidden md:block md:col-span-3"></div>
         </div>
       </div>
 
       {/* 数据分享画布区 */}
       <div ref={shareAreaRef} className="p-6 rounded-2xl border border-gray-200 space-y-4" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
-        <div className="text-center py-2 border-b border-slate-100">
+        
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <h2 className="text-base font-black text-slate-900 tracking-wide">
             {subTab === 'total' 
-              ? `${searchSeason}赛季 ${dynamicLeagueTitleText}青少年球员进球助攻榜`
-              : `${searchSeason}赛季 ${dynamicLeagueTitleText}第 ${searchRound} 轮进球助攻榜`
-            }
+              ? `${searchSeason}赛季 ${dynamicLeagueTitleText}`
+              : `${searchSeason}赛季 ${dynamicLeagueTitleText}第 ${searchRound} 轮`
+          }
+            {/* 🌟 细节修改点 3：只有在赛季总榜下才展示专属小尾巴后缀，每轮榜保持纯净 */}
+            {subTab === 'total' && (
+              <span className="text-emerald-600 font-extrabold ml-1">
+                {rankType === 'goals' ? '青年新星进球榜' : '青年新星助攻榜'}
+              </span>
+            )}
+            {subTab === 'round' && <span className="text-blue-600 font-extrabold ml-1">青年新星进球助攻榜</span>}
           </h2>
+          
+          {/* 🌟 细节修改点 3：仅在赛季总榜（subTab === 'total'）时显示二级拆分药丸按钮，每轮榜下完美隐藏 */}
+          {subTab === 'total' && (
+            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 screenshot-hide-btn">
+              <button 
+                onClick={() => setRankType('goals')} 
+                className={`px-3 py-1 text-[11px] font-black rounded-md transition-all ${rankType === 'goals' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                ⚽ 进球榜
+              </button>
+              <button 
+                onClick={() => setRankType('assists')} 
+                className={`px-3 py-1 text-[11px] font-black rounded-md transition-all ${rankType === 'assists' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                👟 助攻榜
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 🔢 纯净统计面板 */}
         <div className="flex items-center justify-between px-1 text-xs">
           <div className="text-slate-500 font-medium">
-            当前上榜青年新星总数：<span className="font-mono font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">{currentPlayerCount}</span> 人
+            当前榜单青年新星总数：<span className="font-mono font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">{currentPlayerCount}</span> 人
+            {(birthFrom !== 'all' || birthTo !== 'all') && (
+              <span className="ml-2 text-[11px] bg-amber-50 text-amber-700 border border-amber-100 px-1.5 py-0.5 rounded">
+                ⏳ 年龄筛选：{birthFrom === 'all' ? '最早' : `${birthFrom}年`} 至 {birthTo === 'all' ? '最晚' : `${birthTo}年`}
+              </span>
+            )}
           </div>
         </div>
 
@@ -329,8 +421,10 @@ export default function LeagueStatsTab() {
                 <th className="w-24 text-center">联赛级别</th>
                 <th className="pl-4 w-44">所属俱乐部</th>
                 {subTab === 'total' && <th className="w-24 text-center">产出轮次</th>}
-                <th className="w-20 text-center bg-slate-100/50 text-slate-700">⚽ 进球数</th>
-                <th className="w-20 text-center bg-slate-100/50 text-slate-700">👟 助攻数</th>
+                
+                {/* 🌟 表头高亮智适应逻辑 */}
+                <th className={`w-20 text-center text-xs font-bold ${(subTab === 'total' && rankType === 'goals') ? 'bg-green-100/70 text-green-800 font-black' : 'bg-slate-50 text-slate-500'}`}>⚽ 进球数</th>
+                <th className={`w-20 text-center text-xs font-bold ${(subTab === 'total' && rankType === 'assists') ? 'bg-blue-100/70 text-blue-800 font-black' : 'bg-slate-50 text-slate-500'}`}>👟 助攻数</th>
               </tr>
             </thead>
             <tbody>
@@ -339,8 +433,6 @@ export default function LeagueStatsTab() {
               ) : (subTab === 'total' ? aggregatedTotalData : roundData).length > 0 ? (
                 (subTab === 'total' ? aggregatedTotalData : roundData).map((item, index) => {
                   const lName = subTab === 'total' ? item.league : item.league;
-                  
-                  // 🎨 核心：计算这一行数据专属的斑马底色（一行标准，下一行变淡）
                   const rowColor = getRowBgColor(index, lName);
                   
                   const pName = subTab === 'total' ? item.name : (item.players?.name || '未知');
@@ -349,7 +441,6 @@ export default function LeagueStatsTab() {
                   const appearances = item.appearances;
 
                   return (
-                    // 🟢 完美对齐：直接赋予 <tr> 整行相同的底色，全量单元格背景自然融为一体！
                     <tr key={item.id} className="text-xs text-slate-700 border-b border-slate-100 transition-colors" style={{ backgroundColor: rowColor }}>
                       <td className="text-center py-3.5 font-mono font-black text-slate-400/80 text-[13px]">{index + 1}</td>
                       <td className="font-black text-slate-900 text-[14px] tracking-wider truncate">{pName}</td>
@@ -358,9 +449,8 @@ export default function LeagueStatsTab() {
                       <td className="pl-4 font-black text-emerald-800 truncate">{cName}</td>
                       {subTab === 'total' && <td className="text-center font-mono font-bold text-slate-500">{appearances} 轮</td>}
                       
-                      {/* 数字列统一保持原本清晰的加粗色调，不再带有割裂的独立深色方块 */}
-                      <td className="text-center font-mono font-black text-[14px] text-green-700">{item.goals}</td>
-                      <td className="text-center font-mono font-black text-[14px] text-blue-700">{item.assists}</td>
+                      <td className={`text-center font-mono font-black text-[14px] ${(subTab === 'total' && rankType === 'goals') ? 'text-green-700 text-base font-extrabold' : 'text-green-600/70'}`}>{item.goals}</td>
+                      <td className={`text-center font-mono font-black text-[14px] ${(subTab === 'total' && rankType === 'assists') ? 'text-blue-700 text-base font-extrabold' : 'text-blue-600/70'}`}>{item.assists}</td>
                     </tr>
                   );
                 })
