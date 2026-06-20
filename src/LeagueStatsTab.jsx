@@ -51,6 +51,13 @@ export default function LeagueStatsTab() {
 
   const shareAreaRef = useRef(null);
 
+  // 🚨 熔断硬锁：如果当前选中的是中女超，必须无条件强行锁死在进球榜上，不准看助攻榜
+  useEffect(() => {
+    if (searchLeague === '中女超' && rankType !== 'goals') {
+      setRankType('goals');
+    }
+  }, [searchLeague, rankType]);
+
   // 📡 2. 监听浏览器后退或外部 URL 输入，确保多参数完美同步
   useEffect(() => {
     const handleHashChange = () => {
@@ -89,11 +96,11 @@ export default function LeagueStatsTab() {
     if (birthFrom !== 'all') params.set('birthFrom', birthFrom);
     if (birthTo !== 'all') params.set('birthTo', birthTo);
     
-    // 🧽 只有在总榜（赛季榜）下，才写入拆分项 rankType
+    // 只有在总榜（赛季榜）下，才写入拆分项 rankType
     if (subTab === 'total') {
       params.set('rankType', rankType);
     }
-    // 🧽 只有在每轮榜单下，才往 URL 里塞入轮次参数
+    // 只有在每轮榜单下，才往 URL 里塞入轮次参数
     if (subTab === 'round') {
       params.set('round', searchRound);
     }
@@ -102,7 +109,7 @@ export default function LeagueStatsTab() {
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', newHash);
     }
-  }, [subTab, rankType, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo]);
+  }, [subTab, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo, rankType]);
 
   useEffect(() => {
     async function fetchLeagueStats() {
@@ -148,13 +155,14 @@ export default function LeagueStatsTab() {
     return Array.from({ length: maxRound }, (_, i) => (i + 1).toString());
   }, [statsData, searchSeason, searchLeague]);
 
-  // 🎨 4. 同色系深浅整行交替算法
+  // 🎨 4. 同色系深浅整行交替算法 (保留中女超粉色系生态)
   const getRowBgColor = (index, leagueName) => {
     const isEven = index % 2 === 0;
     switch (leagueName) {
       case '中超': return isEven ? '#dbeafe' : '#eff6ff'; 
       case '中甲': return isEven ? '#ffedd5' : '#fff7ed'; 
       case '中乙': return isEven ? '#dcfce7' : '#f0fdf4'; 
+      case '中女超': return isEven ? '#fce7f3' : '#fdf2f8'; 
       default: return isEven ? '#f1f5f9' : '#f8fafc';
     }
   };
@@ -174,7 +182,7 @@ export default function LeagueStatsTab() {
     return matchPlayer && matchLeague && matchSeason && matchBirthFrom && matchBirthTo;
   };
 
-  // 1. 🟢 赛季榜数据处理（加入数据为0时的致命强行剔除逻辑）
+  // 1. 🟢 赛季榜数据处理（注入终极年龄锁死排序）
   const aggregatedTotalData = useMemo(() => {
     const filtered = statsData.filter(isPlayerMatchConditions);
 
@@ -185,7 +193,7 @@ export default function LeagueStatsTab() {
         playerMap[pid] = {
           id: pid,
           name: item.players?.name || '未知',
-          birth_year: item.players?.birth_year || '--',
+          birth_year: item.players?.birth_year || 0, // 默认0防空
           club_name: item.clubs?.name || '自由身',
           league: item.league,
           goals: 0,
@@ -198,41 +206,49 @@ export default function LeagueStatsTab() {
       playerMap[pid].appearances += 1;
     });
 
-    // 🌟 细节修改点 1：转换成数组后，根据当前的 rankType 进行严格的“无产出过滤拦截”
     const allPlayersArray = Object.values(playerMap);
-    
     const finalFilteredArray = allPlayersArray.filter(player => {
-      if (rankType === 'goals') return player.goals > 0; // 进球榜没进球的不给上榜
-      return player.assists > 0; // 助攻榜没助攻的不给上榜
+      if (rankType === 'goals') return player.goals > 0; 
+      return player.assists > 0; 
     });
 
-    // 根据选择对应的榜单进行精准权重第一排序
     return finalFilteredArray.sort((a, b) => {
       if (rankType === 'goals') {
+        // ① 优先比进球
         if (b.goals !== a.goals) return b.goals - a.goals;
-        return b.assists - a.assists;
-      } else {
+        // ② 进球相同比助攻
         if (b.assists !== a.assists) return b.assists - a.assists;
-        return b.goals - a.goals;
+        // ③ 🌟 数据完全打平，强行按出生年从大到小（即年龄越小/年轻、越妖的排在越前面）
+        return b.birth_year - a.birth_year;
+      } else {
+        // ① 优先比助攻
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        // ② 助攻相同比进球
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        // ③ 🌟 同理，助攻打平也按照出生年从大到小（年轻更占优）精准卡死
+        return b.birth_year - a.birth_year;
       }
     });
   }, [statsData, searchPlayer, searchLeague, searchSeason, birthFrom, birthTo, rankType]);
 
-  // 2. 🟢 每轮榜数据处理（细节修改点 3：不进行进球/助攻拆分，经典高光混排）
+  // 2. 🟢 每轮榜数据处理（同样注入终极并列年龄判定线）
   const roundData = useMemo(() => {
     return statsData.filter(item => {
       const matchRound = item.round?.toString() === searchRound;
-      // 只要该轮有输出（进球 > 0 或 助攻 > 0）且满足基础检索，就体面保留上榜
       const hasOutput = (item.goals > 0 || item.assists > 0);
       return matchRound && hasOutput && isPlayerMatchConditions(item);
     }).sort((a, b) => {
-      // 默认按单轮进球数排序，进球相同按助攻数排序
+      // ① 优先比单轮进球
       if (b.goals !== a.goals) return b.goals - a.goals;
-      return b.assists - a.assists;
+      // ② 进球相同比单轮助攻
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      // ③ 🌟 数据完全埃平时，让出生年更晚（数值大，如2006 > 2005）的更年轻新星排到前面！
+      const bBirth = b.players?.birth_year || 0;
+      const aBirth = a.players?.birth_year || 0;
+      return bBirth - aBirth;
     });
   }, [statsData, searchPlayer, searchLeague, searchSeason, searchRound, birthFrom, birthTo]);
 
-  // 🌟 细节修改点 2：球员统计总数动态且精准地绑定各自真正的最终数组长度
   const currentPlayerCount = useMemo(() => {
     return subTab === 'total' ? aggregatedTotalData.length : roundData.length;
   }, [subTab, aggregatedTotalData, roundData]);
@@ -253,10 +269,11 @@ export default function LeagueStatsTab() {
   };
 
   const dynamicLeagueTitleText = useMemo(() => {
-    if (searchLeague === 'all') return '三级职业联赛（中超u23/中甲u21/中乙u21）';
+    if (searchLeague === 'all') return '职业联赛（中超u23/中甲u21/中乙u21/中女超u23）';
     if (searchLeague === '中超') return '中超（u23）';
     if (searchLeague === '中甲') return '中甲（u21）';
     if (searchLeague === '中乙') return '中乙（u21）';
+    if (searchLeague === '中女超') return '中女超（u23）'; 
     return searchLeague;
   }, [searchLeague]);
 
@@ -306,6 +323,7 @@ export default function LeagueStatsTab() {
               <option value="中超">中超（u23）</option>
               <option value="中甲">中甲（u21）</option>
               <option value="中乙">中乙（u21）</option>
+              <option value="中女超">中女超（u23）</option> 
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -370,8 +388,7 @@ export default function LeagueStatsTab() {
             {subTab === 'total' 
               ? `${searchSeason}赛季 ${dynamicLeagueTitleText}`
               : `${searchSeason}赛季 ${dynamicLeagueTitleText}第 ${searchRound} 轮`
-          }
-            {/* 🌟 细节修改点 3：只有在赛季总榜下才展示专属小尾巴后缀，每轮榜保持纯净 */}
+            }
             {subTab === 'total' && (
               <span className="text-emerald-600 font-extrabold ml-1">
                 {rankType === 'goals' ? '青年新星进球榜' : '青年新星助攻榜'}
@@ -380,8 +397,7 @@ export default function LeagueStatsTab() {
             {subTab === 'round' && <span className="text-blue-600 font-extrabold ml-1">青年新星进球助攻榜</span>}
           </h2>
           
-          {/* 🌟 细节修改点 3：仅在赛季总榜（subTab === 'total'）时显示二级拆分药丸按钮，每轮榜下完美隐藏 */}
-          {subTab === 'total' && (
+          {subTab === 'total' && searchLeague !== '中女超' && (
             <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 screenshot-hide-btn">
               <button 
                 onClick={() => setRankType('goals')} 
@@ -422,7 +438,6 @@ export default function LeagueStatsTab() {
                 <th className="pl-4 w-44">所属俱乐部</th>
                 {subTab === 'total' && <th className="w-24 text-center">产出轮次</th>}
                 
-                {/* 🌟 表头高亮智适应逻辑 */}
                 <th className={`w-20 text-center text-xs font-bold ${(subTab === 'total' && rankType === 'goals') ? 'bg-green-100/70 text-green-800 font-black' : 'bg-slate-50 text-slate-500'}`}>⚽ 进球数</th>
                 <th className={`w-20 text-center text-xs font-bold ${(subTab === 'total' && rankType === 'assists') ? 'bg-blue-100/70 text-blue-800 font-black' : 'bg-slate-50 text-slate-500'}`}>👟 助攻数</th>
               </tr>
@@ -450,7 +465,14 @@ export default function LeagueStatsTab() {
                       {subTab === 'total' && <td className="text-center font-mono font-bold text-slate-500">{appearances} 轮</td>}
                       
                       <td className={`text-center font-mono font-black text-[14px] ${(subTab === 'total' && rankType === 'goals') ? 'text-green-700 text-base font-extrabold' : 'text-green-600/70'}`}>{item.goals}</td>
-                      <td className={`text-center font-mono font-black text-[14px] ${(subTab === 'total' && rankType === 'assists') ? 'text-blue-700 text-base font-extrabold' : 'text-blue-600/70'}`}>{item.assists}</td>
+                      
+                      <td className={`text-center font-mono font-black text-[14px] ${(subTab === 'total' && rankType === 'assists') ? 'text-blue-700 text-base font-extrabold' : 'text-blue-600/70'}`}>
+                        {lName === '中女超' ? (
+                          <span className="text-slate-300 font-bold font-sans">--</span>
+                        ) : (
+                          item.assists
+                        )}
+                      </td>
                     </tr>
                   );
                 })
