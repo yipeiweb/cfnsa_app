@@ -36,70 +36,77 @@ export default function App() {
     if (tabName === "fixtures") {
       window.location.hash = queryString
         ? `#/fixtures?${queryString}`
-        : "#/fixtures";
+        : `#/fixtures`;
     } else if (tabName === "squads") {
       window.location.hash = queryString
         ? `#/squads?${queryString}`
-        : "#/squads";
+        : `#/squads`;
     } else if (tabName === "league-stats") {
       window.location.hash = queryString
         ? `#/league-stats?${queryString}`
-        : "#/league-stats";
+        : `#/league-stats`;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#060913] text-slate-100 font-sans antialiased selection:bg-green-500 selection:text-black">
-      {/* 🇨🇳 顶部导航栏 */}
-      <header className="border-b border-gray-800/80 bg-[#0b1324]/90 backdrop-blur-md sticky top-0 z-50 shadow-lg shadow-black/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* 左侧：CFNSA 品牌核心标识 */}
+    <div className="min-h-screen bg-[#040814] text-slate-100 font-sans antialiased selection:bg-green-500/30 selection:text-green-200 selection:backdrop-blur-sm">
+      {/* 🎯 响应式改良 Header：在手机端将 flex-row 改为 flex-col 垂直有序排布 */}
+      <header className="sticky top-0 z-50 bg-[#070d19]/80 border-b border-gray-900 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-auto md:h-20 flex flex-col md:flex-row items-center justify-between py-4 md:py-0 gap-4 md:gap-0">
+          {/* 🇨🇳 LOGO 与主标题块 */}
           <div className="flex items-center gap-3">
-            <span className="text-2xl drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">
-              🇨🇳
-            </span>
+            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20 ring-1 ring-green-400/20">
+              <span className="text-white text-base font-black tracking-tighter">
+                CF
+              </span>
+            </div>
             <div>
-              <h1 className="text-sm font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-gray-400">
-                CFNSA
+              <h1 className="text-sm font-black text-white tracking-wider uppercase">
+                CFNSA DATA CENTER
               </h1>
-              <p className="text-[9px] text-green-500 font-mono font-bold uppercase tracking-widest">
-                CHINA FOOTBALL NEW STARS ANALYTICS
+              <p className="text-[10px] text-slate-500 font-mono tracking-widest uppercase mt-0.5">
+                Chinese Football New Stars Analytics
               </p>
             </div>
           </div>
 
-          {/* 右侧：三卡并行切换 */}
-          <nav className="flex bg-black/60 p-1 rounded-xl border border-gray-800/60 shadow-inner">
-            <button
-              onClick={() => handleTabChange("fixtures")}
-              className={`px-4 py-2 rounded-lg text-xs font-black tracking-wide transition-all duration-200 focus:outline-none ${
-                activeTab === "fixtures"
-                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md shadow-green-900/30 ring-1 ring-green-400/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-gray-900/40"
-              }`}
-            >
-              📅 赛程战绩
-            </button>
-            <button
-              onClick={() => handleTabChange("squads")}
-              className={`px-4 py-2 rounded-lg text-xs font-black tracking-wide transition-all duration-200 focus:outline-none ${
-                activeTab === "squads"
-                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md shadow-green-900/30 ring-1 ring-green-400/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-gray-900/40"
-              }`}
-            >
-              📋 大名单现状
-            </button>
-            <button
-              onClick={() => handleTabChange("league-stats")}
-              className={`px-4 py-2 rounded-lg text-xs font-black tracking-wide transition-all duration-200 focus:outline-none ${
-                activeTab === "league-stats"
-                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md shadow-green-900/30 ring-1 ring-green-400/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-gray-900/40"
-              }`}
-            >
-              📊 职业联赛表现
-            </button>
+          {/* 📱 响应式升级交互按钮组 */}
+          {/* PC端(md:)保持原本一排右对齐；移动端全宽横向流线排布，不缩水不换行 */}
+          <nav className="w-full md:w-auto overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-2 pb-1 md:pb-0 min-w-max px-1">
+              <button
+                onClick={() => handleTabChange("fixtures")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all duration-300 whitespace-nowrap ${
+                  activeTab === "fixtures"
+                    ? "bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border border-green-500/30 shadow-lg shadow-green-500/5 backdrop-blur-sm font-extrabold"
+                    : "border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
+                }`}
+              >
+                📅 国字号赛程日历
+              </button>
+
+              <button
+                onClick={() => handleTabChange("squads")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all duration-300 whitespace-nowrap ${
+                  activeTab === "squads"
+                    ? "bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border border-green-500/30 shadow-lg shadow-green-500/5 backdrop-blur-sm font-extrabold"
+                    : "border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
+                }`}
+              >
+                🏆 国脚名册现状
+              </button>
+
+              <button
+                onClick={() => handleTabChange("league-stats")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all duration-300 whitespace-nowrap ${
+                  activeTab === "league-stats"
+                    ? "bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border border-green-500/30 shadow-lg shadow-green-500/5 backdrop-blur-sm font-extrabold"
+                    : "border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
+                }`}
+              >
+                📊 职业联赛表现
+              </button>
+            </div>
           </nav>
         </div>
       </header>
@@ -110,7 +117,7 @@ export default function App() {
           <div className="absolute -top-20 left-1/3 w-96 h-96 bg-green-500/5 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute top-40 right-1/4 w-80 h-80 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-          <div className="relative z-10 bg-[#0b1220]/40 border border-gray-800/50 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+          <div className="relative z-10 bg-[#0b1220]/40 border border-gray-800/50 rounded-2xl p-4 sm:p-6 shadow-xl backdrop-blur-sm">
             {activeTab === "fixtures" && <FixturesTab />}
             {activeTab === "squads" && <SquadsTab />}
             {activeTab === "league-stats" && <LeagueStatsTab />}
@@ -121,13 +128,6 @@ export default function App() {
       <footer className="border-t border-gray-950 bg-[#04070d] text-center py-8 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
           <span>CFNSA DATA CENTER © {new Date().getFullYear()}</span>
-          <span className="hidden sm:inline text-gray-800">|</span>
-          <span className="text-gray-600 font-sans font-medium">
-            中国足坛青少年球员职业联赛数据跟踪分析系统
-          </span>
-        </div>
-        <div className="text-[9px] text-gray-700 mt-1.5 font-sans font-medium tracking-normal normal-case">
-          声明：本平台数据基于公开职业联赛统计清洗提炼，仅用于学术交流及青少年足球星火跟踪分析。
         </div>
       </footer>
     </div>
