@@ -93,7 +93,7 @@ export default function App() {
                     : "border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
                 }`}
               >
-                🏆 国脚名册现状
+                🏆 青少年大赛球员发展
               </button>
 
               <button

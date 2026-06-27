@@ -457,8 +457,19 @@ export default function LeagueStatsTab() {
                 <th className="w-24 text-center">联赛级别</th>
                 <th className="pl-4 w-44">所属俱乐部</th>
                 {subTab === 'total' && <th className="w-24 text-center">产出轮次</th>}
-                <th className="w-20 text-center text-xs font-bold">⚽ 进球数</th>
-                <th className="w-20 text-center text-xs font-bold">👟 助攻数</th>
+                {subTab === 'total' && searchLeague !== '中女超' 
+                  ? (
+                    <>
+                      {rankType === 'goals' && <th className="w-20 text-center text-xs font-bold">⚽ 进球数</th>}
+                      {rankType === 'assists' && <th className="w-20 text-center text-xs font-bold">👟 助攻数</th>}
+                    </>
+                  )
+                  :(
+                    <>
+                      <th className="w-20 text-center text-xs font-bold">⚽ 进球数</th>
+                      {searchLeague !== '中女超' && <th className="w-20 text-center text-xs font-bold">👟 助攻数</th>}
+                    </>                    
+                  )}
               </tr>
             </thead>
             <tbody>
@@ -477,14 +488,21 @@ export default function LeagueStatsTab() {
                     <td className="text-center font-semibold text-slate-500">{lName}</td>
                     <td className="pl-4 font-black text-emerald-800 truncate">{cName}</td>
                     {subTab === 'total' && <td className="text-center font-mono font-bold text-slate-500">{item.appearances} 轮</td>}
-                    <td className="text-center font-mono font-black text-[14px] text-green-700">{item.goals}</td>
-                    <td className="text-center font-mono font-black text-[14px] text-blue-700">
-                      {lName === '中女超' ? (
-                        <span className="text-slate-300 font-bold font-sans">--</span>
-                      ) : (
-                        item.assists
-                      )}
-                    </td>
+                    {subTab === 'total'
+                    ? (
+                      <>
+                        {rankType === 'goals' && <td className="text-center font-mono font-black text-[14px] text-green-700">{item.goals}</td>}
+                        {rankType === 'assists' && <td className="text-center font-mono font-black text-[14px] text-blue-700">{item.assists}</td>}
+                      </>
+                    )
+                    :(
+                      <>
+                        <td className="text-center font-mono font-black text-[14px] text-green-700">{item.goals}</td>
+                        {lName !== '中女超' && (
+                          <td className="text-center font-mono font-black text-[14px] text-blue-700">{item.assists}</td>
+                        )}
+                      </>                    
+                    )}
                   </tr>
                 );
               })}
