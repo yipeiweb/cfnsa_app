@@ -285,27 +285,29 @@ export default function LeagueStatsTab() {
       }
     });
 
-    return finalFilteredArray.sort((a, b) => {
+return finalFilteredArray.sort((a, b) => {
       if (isGkMode) {
         if (rankType === "saves") {
           if (b.saves !== a.saves) return b.saves - a.saves;
-          if (b.clean_sheets !== a.clean_sheets)
-            return b.clean_sheets - a.clean_sheets;
+          if (b.birth_year !== a.birth_year) return b.birth_year - a.birth_year;
+          return b.clean_sheets - a.clean_sheets;
         } else {
-          if (b.clean_sheets !== a.clean_sheets)
-            return b.clean_sheets - a.clean_sheets;
-          if (b.saves !== a.saves) return b.saves - a.saves;
+          if (b.clean_sheets !== a.clean_sheets) return b.clean_sheets - a.clean_sheets;
+          if (b.birth_year !== a.birth_year) return b.birth_year - a.birth_year;
+          return b.saves - a.saves;
         }
-        return b.birth_year - a.birth_year;
       } else {
         if (rankType === "goals") {
+          // ⚽ 进球榜：进球数相同 -> 比年龄(出生年大者优先) -> 比助攻
           if (b.goals !== a.goals) return b.goals - a.goals;
-          if (b.assists !== a.assists) return b.assists - a.assists;
+          if (b.birth_year !== a.birth_year) return b.birth_year - a.birth_year;
+          return b.assists - a.assists;
         } else {
+          // 👟 助攻榜：助攻数相同 -> 比年龄(出生年大者优先) -> 比进球
           if (b.assists !== a.assists) return b.assists - a.assists;
-          if (b.goals !== a.goals) return b.goals - a.goals;
+          if (b.birth_year !== a.birth_year) return b.birth_year - a.birth_year;
+          return b.goals - a.goals;
         }
-        return b.birth_year - a.birth_year;
       }
     });
   }, [
