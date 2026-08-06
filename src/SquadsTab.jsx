@@ -122,11 +122,11 @@ export default function SquadsTab() {
     return `${prefix}${normName}大名单国脚现状（共 ${filteredSquads.length} 人）`;
   }, [filteredSquads, searchTournament, searchYear]);
 
-  const exportSquadsImage = async () => {
+const exportSquadsImage = async () => {
     if (!shareAreaRef.current) return;
     try {
       const container = shareAreaRef.current;
-      // 🎯 核心绝杀：截图前强制给最外层画布垫上固定大宽度，确保名册每一列都能完美平铺展开
+      // 🎯 截图前强制给最外层画布垫上固定大宽度
       const originalWidth = container.style.width;
       container.style.width = "1100px";
 
@@ -139,10 +139,22 @@ export default function SquadsTab() {
       // 🔄 截图完瞬间恢复
       container.style.width = originalWidth;
 
+      // 1. 📥 触发文件下载
       const link = document.createElement("a");
       link.download = `CFNSA_国脚名册现状_${searchYear}年_${searchTournament || "全量"}.png`;
       link.href = dataUrl;
       link.click();
+
+      // 2. 📋 复制到剪贴板
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ]);
+      } catch (clipErr) {
+        console.warn("复制图片到剪贴板受限:", clipErr);
+      }
     } catch (err) {
       console.error("名册图片生成失败:", err);
     }

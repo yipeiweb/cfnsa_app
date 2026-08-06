@@ -179,11 +179,20 @@ export default function FixturesTab() {
     }
   }, [filteredFixtures, searchYear, searchMonth, searchStatus]);
 
-  const exportToImage = async () => {
+const exportToImage = async () => {
     if (!shareAreaRef.current) return;
     try {
       const container = shareAreaRef.current;
-      // 🎯 核心绝杀：截图前强制给最外层画布垫上固定大宽度，防止被手机屏幕边缘误伤裁剪
+
+      // 1. 🔍 找到所有需要隐藏的按钮和文本
+      const hideBtns = container.querySelectorAll(".screenshot-hide-btn");
+      const hideTexts = container.querySelectorAll(".screenshot-hide-text");
+
+      // 2. 🙈 截图前暂时隐藏它们
+      hideBtns.forEach((btn) => (btn.style.display = "none"));
+      hideTexts.forEach((text) => (text.style.display = "none"));
+
+      // 🎯 强制给最外层画布垫上固定大宽度，防止手机端裁剪
       const originalWidth = container.style.width;
       container.style.width = "1100px";
 
@@ -193,13 +202,27 @@ export default function FixturesTab() {
         backgroundColor: "#ffffff",
       });
 
-      // 🔄 截图完瞬间复原原始网页宽度自适应
+      // 3. 🔄 截图完成后瞬间复原原始样式和显示
       container.style.width = originalWidth;
+      hideBtns.forEach((btn) => (btn.style.display = ""));
+      hideTexts.forEach((text) => (text.style.display = ""));
 
+      // 4. 📥 触发文件下载
       const link = document.createElement("a");
       link.download = `CFNSA_国字号赛程大盘_${searchYear}年_${searchMonth}月.png`;
       link.href = dataUrl;
       link.click();
+
+      // 5. 📋 复制到剪贴板
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ]);
+      } catch (clipErr) {
+        console.warn("复制图片到剪贴板受限:", clipErr);
+      }
     } catch (err) {
       console.error("长图生成故障:", err);
     }

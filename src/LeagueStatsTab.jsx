@@ -374,7 +374,7 @@ return finalFilteredArray.sort((a, b) => {
       : roundData.length;
   }, [subTab, aggregatedTotalData, roundData]);
 
-  // 📸 长图高清导出
+// 📸 长图高清导出与复制
   const exportStatsImageAndCopy = async () => {
     if (!shareAreaRef.current) return;
     try {
@@ -395,6 +395,7 @@ return finalFilteredArray.sort((a, b) => {
       container.style.width = originalWidth;
       if (targetBtn) targetBtn.style.display = "";
 
+      // 1. 📥 触发文件下载
       const link = document.createElement("a");
       let typeText = "数据榜";
       if (subTab === "total")
@@ -408,6 +409,17 @@ return finalFilteredArray.sort((a, b) => {
       link.download = `CFNSA_${typeText}_${new Date().toISOString().slice(0, 10)}.png`;
       link.href = dataUrl;
       link.click();
+
+      // 2. 📋 复制到剪贴板
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ]);
+      } catch (clipErr) {
+        console.warn("复制图片到剪贴板受限:", clipErr);
+      }
     } catch (err) {
       console.error("导出失败:", err);
     }
